@@ -42,6 +42,26 @@ async function run() {
         res.status(500).send("Internal server error");
       }
     });
+
+    app.get('/success-counter', async (req, res) => {
+    try {
+        const totalUsers = await userCollection.countDocuments();
+        const totalMales = await userCollection.countDocuments({ gender: "Male" });
+        const totalFemales = await userCollection.countDocuments({ gender: "Female" });
+        // const totalMarriages = await marriageCollection.countDocuments(); // assuming you have this
+
+        res.send({
+            totalUsers,
+            totalMales,
+            totalFemales,
+            // totalMarriages
+        });
+    } catch (err) {
+        console.error("Error fetching success counter:", err);
+        res.status(500).send("Internal server error");
+    }
+});
+
   } catch (err) {
     console.error("MongoDB connection error:", err);
   }
