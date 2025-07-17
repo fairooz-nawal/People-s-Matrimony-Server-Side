@@ -31,6 +31,7 @@ async function run() {
     console.log("Connected to MongoDB");
 
     const userCollection = client.db("PeoplesMatrimony").collection("User");
+    const marriageCollection = client.db("PeoplesMatrimony").collection("SuccessStories");
 
     // User API
     app.get('/user', async (req, res) => {
@@ -43,24 +44,35 @@ async function run() {
       }
     });
 
+    // app.get('/success-stories', async (req, res) =>{
+    //   try{
+    //    const users = await marriageCollection.count
+    //   }
+    //   catch{
+
+    //   }
+    // })
+
     app.get('/success-counter', async (req, res) => {
     try {
         const totalUsers = await userCollection.countDocuments();
         const totalMales = await userCollection.countDocuments({ gender: "Male" });
         const totalFemales = await userCollection.countDocuments({ gender: "Female" });
-        // const totalMarriages = await marriageCollection.countDocuments(); // assuming you have this
+        const totalMarriages = await marriageCollection.countDocuments(); 
 
         res.send({
             totalUsers,
             totalMales,
             totalFemales,
-            // totalMarriages
+            totalMarriages
         });
     } catch (err) {
         console.error("Error fetching success counter:", err);
         res.status(500).send("Internal server error");
     }
 });
+
+
 
   } catch (err) {
     console.error("MongoDB connection error:", err);
