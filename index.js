@@ -44,14 +44,16 @@ async function run() {
       }
     });
 
-    // app.get('/success-stories', async (req, res) =>{
-    //   try{
-    //    const users = await marriageCollection.count
-    //   }
-    //   catch{
-
-    //   }
-    // })
+    app.get('/success-stories', async (req, res) =>{
+      try{
+       const marriages = await marriageCollection.find().limit(6).toArray();
+       res.send(marriages);
+      }
+      catch(err) {
+        console.error("Error fetching success stories:", err);
+        res.status(500).send("Internal server error");
+      }
+    })
 
     app.get('/success-counter', async (req, res) => {
     try {
