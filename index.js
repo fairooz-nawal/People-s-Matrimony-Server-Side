@@ -3,7 +3,7 @@ const express = require('express');
 const cors = require('cors');
 const app = express();
 const port = process.env.PORT || 5000;
-const { MongoClient, ServerApiVersion } = require('mongodb');
+const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 
 // middleware
 app.use(cors());
@@ -34,6 +34,25 @@ async function run() {
     const marriageCollection = client.db("PeoplesMatrimony").collection("SuccessStories");
 
     // User API
+    app.get('/alluser', async (req, res) => {
+      try {
+        const users = await userCollection.find().toArray();
+        res.send(users);
+      } catch (err) {
+        console.error("Error fetching users:", err);
+        res.status(500).send("Internal server error");
+      }
+    });
+
+     app.get("/alluser/:id", async (req, res) => {
+      const { id } = req.params;
+      const biodata = await userCollection.findOne({ _id: new ObjectId(id) });
+      if (!biodata) {
+        return res.status(404).json({ error: "Biodata not found" });
+      }
+      res.json(biodata);
+    });
+
     app.get('/user', async (req, res) => {
       try {
         const users = await userCollection.find().limit(6).toArray();
@@ -44,35 +63,37 @@ async function run() {
       }
     });
 
-    app.get('/success-stories', async (req, res) =>{
-      try{
-       const marriages = await marriageCollection.find().limit(6).toArray();
-       res.send(marriages);
+   
+
+    app.get('/success-stories', async (req, res) => {
+      try {
+        const marriages = await marriageCollection.find().limit(6).toArray();
+        res.send(marriages);
       }
-      catch(err) {
+      catch (err) {
         console.error("Error fetching success stories:", err);
         res.status(500).send("Internal server error");
       }
     })
 
     app.get('/success-counter', async (req, res) => {
-    try {
+      try {
         const totalUsers = await userCollection.countDocuments();
         const totalMales = await userCollection.countDocuments({ gender: "Male" });
         const totalFemales = await userCollection.countDocuments({ gender: "Female" });
-        const totalMarriages = await marriageCollection.countDocuments(); 
+        const totalMarriages = await marriageCollection.countDocuments();
 
         res.send({
-            totalUsers,
-            totalMales,
-            totalFemales,
-            totalMarriages
+          totalUsers,
+          totalMales,
+          totalFemales,
+          totalMarriages
         });
-    } catch (err) {
+      } catch (err) {
         console.error("Error fetching success counter:", err);
         res.status(500).send("Internal server error");
-    }
-});
+      }
+    });
 
 
 
