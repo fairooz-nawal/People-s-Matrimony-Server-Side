@@ -63,6 +63,19 @@ async function run() {
       }
     });
 
+    // USER POST
+
+    app.post('/alluser', async (req, res) => {
+      try { 
+        const user = req.body;
+        const result = await userCollection.insertOne(user);
+        res.send(result);
+      } catch (err) {
+        console.error("Error creating user:", err);
+        res.status(500).send("Internal server error");
+      }
+    });
+
    
 
     app.get('/success-stories', async (req, res) => {
