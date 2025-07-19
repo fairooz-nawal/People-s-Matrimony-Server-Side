@@ -184,6 +184,33 @@ app.post('/create-payment-intent', async (req, res) => {
   }
 });
 
+// Save successful payment to DB
+app.post('/save-payment', async (req, res) => {
+  try {
+    const { biodataId, email, amount, paymentIntentId } = req.body;
+
+    if (!biodataId || !email || !paymentIntentId) {
+      return res.status(400).json({ message: "Missing required fields" });
+    }
+
+    const paymentData = {
+      biodataId,
+      email,
+      amount,
+      paymentIntentId,
+      approved: false, // Initially false. You can toggle it later from admin panel
+      date: new Date()
+    };
+
+    const result = await paymentCollection.insertOne(paymentData);
+    res.status(200).json({ message: "Payment saved successfully", result });
+  } catch (err) {
+    console.error("Error saving payment:", err);
+    res.status(500).json({ message: "Internal server error" });
+  }
+});
+
+
 
 run().catch(console.dir);
 
