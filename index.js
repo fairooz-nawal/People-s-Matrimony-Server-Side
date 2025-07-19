@@ -31,9 +31,26 @@ async function run() {
     console.log("Connected to MongoDB");
 
     const userCollection = client.db("PeoplesMatrimony").collection("User");
+    const favouriteCollection = client.db("PeoplesMatrimony").collection("Favourite");
     const marriageCollection = client.db("PeoplesMatrimony").collection("SuccessStories");
 
-    // User API
+    // All Get APIS
+
+    // Get API for info of single user
+    app.get('/singlealluser', async (req, res) => {
+      try {
+        const email = req.query.email;
+        if (email) {
+          const user = await userCollection.findOne({ contactEmail: email });
+          res.send(user);
+        }
+      } catch (err) {
+        console.error("Error fetching users:", err);
+        res.status(500).send("Internal server error");
+      }
+    });
+
+    // Get API for info of All user
     app.get('/alluser', async (req, res) => {
       try {
         const users = await userCollection.find().toArray();
@@ -44,7 +61,8 @@ async function run() {
       }
     });
 
-     app.get("/alluser/:id", async (req, res) => {
+    // Get API for info of particular user detail
+    app.get("/alluser/:id", async (req, res) => {
       const { id } = req.params;
       const biodata = await userCollection.findOne({ _id: new ObjectId(id) });
       if (!biodata) {
@@ -53,6 +71,7 @@ async function run() {
       res.json(biodata);
     });
 
+    // Get API for info of all user but limited to 6
     app.get('/user', async (req, res) => {
       try {
         const users = await userCollection.find().limit(6).toArray();
@@ -63,21 +82,7 @@ async function run() {
       }
     });
 
-    // USER POST
-
-    app.post('/alluser', async (req, res) => {
-      try { 
-        const user = req.body;
-        const result = await userCollection.insertOne(user);
-        res.send(result);
-      } catch (err) {
-        console.error("Error creating user:", err);
-        res.status(500).send("Internal server error");
-      }
-    });
-
-   
-
+   // Get API for Success Stories of Marriage
     app.get('/success-stories', async (req, res) => {
       try {
         const marriages = await marriageCollection.find().limit(6).toArray();
@@ -89,6 +94,7 @@ async function run() {
       }
     })
 
+    // Get API for gettting counts of all tables
     app.get('/success-counter', async (req, res) => {
       try {
         const totalUsers = await userCollection.countDocuments();
@@ -108,7 +114,48 @@ async function run() {
       }
     });
 
+     app.get('/allFavourites', async (req, res) => {
+      try {
+        const users = await favouriteCollection.find().toArray();
+        res.send(users);
+      } catch (err) {
+        console.error("Error fetching users:", err);
+        res.status(500).send("Internal server error");
+      }
+    });
 
+    // USER POST
+
+    // Post API for creating customer user Details
+   app.put('/alluser/:id', async (req, res) => {
+    const { id } = req.params;
+    const updatedUser = req.body;
+     if (updatedUser._id) {
+            delete updatedUser._id;
+        }
+    try {
+        const result = await userCollection.updateOne(
+            { _id: new ObjectId(id) },
+            { $set: updatedUser }
+        );
+        res.send(result);
+    } catch (err) {
+        console.error("Error updating user:", err);
+        res.status(500).send({ message: "Server error" });
+    }
+});
+
+    // Post API for Adding favourtite Biodata
+    app.post('/addFavourite', async (req, res) => {
+      try {
+        const user = req.body;
+        const result = await favouriteCollection.insertOne(user);
+        res.send(result);
+      } catch (err) {
+        console.error("Error creating user:", err);
+        res.status(500).send("Internal server error");
+      }
+    });
 
   } catch (err) {
     console.error("MongoDB connection error:", err);
