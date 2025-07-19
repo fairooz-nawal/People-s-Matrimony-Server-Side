@@ -2,6 +2,7 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const app = express();
+const stripe = require('stripe')(process.env.PAYMENT_GATEWAY_KEY);
 const port = process.env.PORT || 5000;
 const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 
@@ -161,6 +162,28 @@ async function run() {
     console.error("MongoDB connection error:", err);
   }
 }
+
+//Stripe Checkout API Intent
+app.post('/create-payment-intent', async (req, res) => {
+
+  const amountInCent = req.body.amount * 100;
+  try {
+    // Create a PaymentIntent
+    const paymentIntent = await stripe.paymentIntents.create({
+      amount: amountInCent, // amount in cents
+      currency: 'usd',
+      payment_method_types: ['card'],
+    });
+
+    // Send the client secret to the client
+    res.json({
+      clientSecret: paymentIntent.client_secret
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 
 run().catch(console.dir);
 
