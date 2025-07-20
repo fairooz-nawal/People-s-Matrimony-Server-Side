@@ -2,6 +2,8 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const app = express();
+const jwt = require('jsonwebtoken');
+const admin = require("firebase-admin");
 const stripe = require('stripe')(process.env.PAYMENT_GATEWAY_KEY);
 const port = process.env.PORT || 5000;
 const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
@@ -9,6 +11,15 @@ const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 // middleware
 app.use(cors());
 app.use(express.json());
+
+
+
+const serviceAccount = require("./firebase-SDK.json");
+
+admin.initializeApp({
+  credential: admin.credential.cert(serviceAccount)
+});
+
 
 app.get('/', (req, res) => {
   res.send("Welcome to People's Matrimony!");
@@ -32,13 +43,41 @@ async function run() {
     console.log("Connected to MongoDB");
 
     const userCollection = client.db("PeoplesMatrimony").collection("User");
+    const RegisteredUserCollection = client.db("PeoplesMatrimony").collection("RegisteredUser");
     const favouriteCollection = client.db("PeoplesMatrimony").collection("Favourite");
     const marriageCollection = client.db("PeoplesMatrimony").collection("SuccessStories");
+    const paymentCollection = client.db("PeoplesMatrimony").collection("UserPayment");
 
     // All Get APIS
 
-    // Get API for info of single user
-    app.get('/singlealluser', async (req, res) => {
+    const verifyJWT = async (req, res, next) => {
+      const authHeader = req.headers.authorization;
+
+      if (!authHeader) {
+        return res.status(401).json({ message: 'Unauthorized: No token provided' });
+      }
+
+      const token = authHeader.split(' ')[1]; // Remove Bearer
+
+      if (!token) {
+        return res.status(401).json({ message: 'Unauthorized: No token provided' });
+      }
+
+      //verify the token
+      try {
+        const decoded = await admin.auth().verifyIdToken(token);
+        console.log(decoded);
+        next();
+      }
+      catch (error) {
+        return res.status(403).json({ message: 'Forbidden Access' });
+      }
+     
+
+    }
+
+    // Get API for info of single user (protected Route)
+    app.get('/singlealluser',verifyJWT, async (req, res) => {
       try {
         const email = req.query.email;
         if (email) {
@@ -51,8 +90,19 @@ async function run() {
       }
     });
 
-    // Get API for info of All user
-    app.get('/alluser', async (req, res) => {
+    // GET API to get users after they register into the system
+    app.get('/registereduser', async (req, res) => {
+      try {
+        const users = await RegisteredUserCollection.find().toArray();
+        res.send(users);
+      } catch (err) {
+        console.error("Error fetching users:", err);
+        res.status(500).send("Internal server error");
+      }
+    });
+
+    // Get API for info of All user (Private Route)
+    app.get('/alluser', verifyJWT, async (req, res) => {
       try {
         const users = await userCollection.find().toArray();
         res.send(users);
@@ -62,9 +112,10 @@ async function run() {
       }
     });
 
-    // Get API for info of particular user detail
-    app.get("/alluser/:id", async (req, res) => {
+    // Get API for info of particular user detail (Private Route)
+    app.get("/alluser/:id",verifyJWT, async (req, res) => {
       const { id } = req.params;
+      console.log(req.headers)
       const biodata = await userCollection.findOne({ _id: new ObjectId(id) });
       if (!biodata) {
         return res.status(404).json({ error: "Biodata not found" });
@@ -83,7 +134,7 @@ async function run() {
       }
     });
 
-   // Get API for Success Stories of Marriage
+    // Get API for Success Stories of Marriage
     app.get('/success-stories', async (req, res) => {
       try {
         const marriages = await marriageCollection.find().limit(6).toArray();
@@ -115,7 +166,8 @@ async function run() {
       }
     });
 
-     app.get('/allFavourites', async (req, res) => {
+    // Get API for info of all favourite (Private Route)
+    app.get('/allFavourites',verifyJWT, async (req, res) => {
       try {
         const users = await favouriteCollection.find().toArray();
         res.send(users);
@@ -127,27 +179,48 @@ async function run() {
 
     // USER POST
 
-    // Post API for creating customer user Details
-   app.put('/alluser/:id', async (req, res) => {
-    const { id } = req.params;
-    const updatedUser = req.body;
-     if (updatedUser._id) {
-            delete updatedUser._id;
+    //POST API to get users after they register into the system 
+    app.post('/registereduser', async (req, res) => {
+      try {
+        const email = req.body.email;
+
+        const userExists = await RegisteredUserCollection.findOne({ email });
+        if (userExists) {
+          return res.status(200).send({
+            message: "User already exists",
+            inserted: false
+          });
         }
-    try {
+        const user = req.body;
+        const result = await RegisteredUserCollection.insertOne(user);
+        res.send(result);
+      } catch (err) {
+        console.error("Error creating user:", err);
+        res.status(500).send("Internal server error");
+      }
+    });
+
+    // Post API for creating customer user Details (Private Route)
+    app.put('/alluser/:id',verifyJWT, async (req, res) => {
+      const { id } = req.params;
+      const updatedUser = req.body;
+      if (updatedUser._id) {
+        delete updatedUser._id;
+      }
+      try {
         const result = await userCollection.updateOne(
-            { _id: new ObjectId(id) },
-            { $set: updatedUser }
+          { _id: new ObjectId(id) },
+          { $set: updatedUser }
         );
         res.send(result);
-    } catch (err) {
+      } catch (err) {
         console.error("Error updating user:", err);
         res.status(500).send({ message: "Server error" });
-    }
-});
+      }
+    });
 
-    // Post API for Adding favourtite Biodata
-    app.post('/addFavourite', async (req, res) => {
+    // Post API for Adding favourtite Biodata (Private Route)
+    app.post('/addFavourite', verifyJWT,async (req, res) => {
       try {
         const user = req.body;
         const result = await favouriteCollection.insertOne(user);
@@ -158,58 +231,69 @@ async function run() {
       }
     });
 
+    //Stripe Checkout API Intent (Private Route)
+    app.post('/create-payment-intent',verifyJWT, async (req, res) => {
+
+      const amountInCent = req.body.amount * 100;
+      try {
+        // Create a PaymentIntent
+        const paymentIntent = await stripe.paymentIntents.create({
+          amount: amountInCent, // amount in cents
+          currency: 'usd',
+          payment_method_types: ['card'],
+        });
+
+        // Send the client secret to the client
+        res.json({
+          clientSecret: paymentIntent.client_secret
+        });
+      } catch (error) {
+        res.status(500).json({ error: error.message });
+      }
+    });
+
+    // Save successful payment to DB (Private Route)
+    app.post('/save-payment',verifyJWT, async (req, res) => {
+      try {
+        const { biodataId, email, amount, paymentIntentId } = req.body;
+        console.log(req.body);
+        if (!biodataId || !email || !paymentIntentId) {
+          return res.status(400).json({ message: "Missing required fields" });
+        }
+
+        const paymentData = {
+          biodataId,
+          email,
+          amount,
+          paymentIntentId,
+          status: false, // Initially false. You can toggle it later from admin panel
+          date: new Date()
+        };
+
+        const result = await paymentCollection.insertOne(paymentData);
+        res.status(200).json({ message: "Payment saved successfully", result });
+      } catch (err) {
+        console.error("Error saving payment:", err);
+        res.status(500).json({ message: "Internal server error" });
+      }
+    });
+
+    // Get all contact requests (Private Route)
+    app.get('/all-contact-requests',verifyJWT, async (req, res) => {
+      try {
+        const contactRequests = await paymentCollection.find().toArray();
+        res.status(200).json(contactRequests);
+      } catch (err) {
+        console.error("Error fetching contact requests:", err);
+        res.status(500).json({ message: "Internal server error" });
+      }
+    });
+
   } catch (err) {
     console.error("MongoDB connection error:", err);
   }
+
 }
-
-//Stripe Checkout API Intent
-app.post('/create-payment-intent', async (req, res) => {
-
-  const amountInCent = req.body.amount * 100;
-  try {
-    // Create a PaymentIntent
-    const paymentIntent = await stripe.paymentIntents.create({
-      amount: amountInCent, // amount in cents
-      currency: 'usd',
-      payment_method_types: ['card'],
-    });
-
-    // Send the client secret to the client
-    res.json({
-      clientSecret: paymentIntent.client_secret
-    });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-// Save successful payment to DB
-app.post('/save-payment', async (req, res) => {
-  try {
-    const { biodataId, email, amount, paymentIntentId } = req.body;
-
-    if (!biodataId || !email || !paymentIntentId) {
-      return res.status(400).json({ message: "Missing required fields" });
-    }
-
-    const paymentData = {
-      biodataId,
-      email,
-      amount,
-      paymentIntentId,
-      approved: false, // Initially false. You can toggle it later from admin panel
-      date: new Date()
-    };
-
-    const result = await paymentCollection.insertOne(paymentData);
-    res.status(200).json({ message: "Payment saved successfully", result });
-  } catch (err) {
-    console.error("Error saving payment:", err);
-    res.status(500).json({ message: "Internal server error" });
-  }
-});
-
 
 
 run().catch(console.dir);
