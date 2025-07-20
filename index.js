@@ -52,32 +52,90 @@ async function run() {
 
     const verifyJWT = async (req, res, next) => {
       const authHeader = req.headers.authorization;
-
       if (!authHeader) {
         return res.status(401).json({ message: 'Unauthorized: No token provided' });
       }
-
       const token = authHeader.split(' ')[1]; // Remove Bearer
 
       if (!token) {
         return res.status(401).json({ message: 'Unauthorized: No token provided' });
       }
-
       //verify the token
       try {
         const decoded = await admin.auth().verifyIdToken(token);
-        console.log(decoded);
+        // console.log(decoded);
         next();
       }
       catch (error) {
         return res.status(403).json({ message: 'Forbidden Access' });
       }
-     
-
     }
 
+    // Middleware to verify admin
+    const verifyAdmin = async (req, res, next) => {
+      const email = req.user.email; // This comes from verifyJWT
+      const user = await RegisteredUserCollection.findOne({ email });
+      if (user?.role !== "admin") {
+        return res.status(403).json({ message: "Forbidden: Admins only" });
+      }
+      next();
+    };
+
+// Search user by partial email (case-insensitive)
+app.get('/adminsearch',verifyJWT, async (req, res) => {
+  const email = req.query.email;
+
+  if (!email) {
+    return res.status(400).json({ message: "Please provide an email to search" });
+  }
+
+  const regex = new RegExp(email, "i"); // case-insensitive regex
+
+  try {
+    const users = await RegisteredUserCollection.find({
+      email: { $regex: regex }
+    }).toArray();
+
+    if (users.length === 0) {
+      return res.status(404).json({ message: "No users found" });
+    }
+
+    res.json(users);
+  } catch (err) {
+    console.error("Error searching user:", err);
+    res.status(500).json({ message: "Internal server error" });
+  }
+});
+
+// Toggle admin role
+app.patch('/admin/toggle-admin/:id', verifyJWT,  async (req, res) => {
+  const { id } = req.params;
+  const { action } = req.body; // action: "make" or "remove"
+
+  if (!["make", "remove"].includes(action)) {
+    return res.status(400).json({ message: "Invalid action" });
+  }
+
+  try {
+    const result = await RegisteredUserCollection.updateOne(
+      { _id: new ObjectId(id) },
+      { $set: { role: action === "make" ? "admin" : "user" } }
+    );
+    res.json({
+      message: `User has been ${action === "make" ? "made admin" : "removed from admin"}`,
+      result
+    });
+  } catch (err) {
+    console.error("Error toggling admin role:", err);
+    res.status(500).json({ message: "Internal server error" });
+  }
+});
+
+
+
+
     // Get API for info of single user (protected Route)
-    app.get('/singlealluser',verifyJWT, async (req, res) => {
+    app.get('/singlealluser', verifyJWT, async (req, res) => {
       try {
         const email = req.query.email;
         if (email) {
@@ -101,6 +159,8 @@ async function run() {
       }
     });
 
+    
+
     // Get API for info of All user (Private Route)
     app.get('/alluser', verifyJWT, async (req, res) => {
       try {
@@ -113,7 +173,7 @@ async function run() {
     });
 
     // Get API for info of particular user detail (Private Route)
-    app.get("/alluser/:id",verifyJWT, async (req, res) => {
+    app.get("/alluser/:id", verifyJWT, async (req, res) => {
       const { id } = req.params;
       console.log(req.headers)
       const biodata = await userCollection.findOne({ _id: new ObjectId(id) });
@@ -167,7 +227,7 @@ async function run() {
     });
 
     // Get API for info of all favourite (Private Route)
-    app.get('/allFavourites',verifyJWT, async (req, res) => {
+    app.get('/allFavourites', verifyJWT, async (req, res) => {
       try {
         const users = await favouriteCollection.find().toArray();
         res.send(users);
@@ -201,7 +261,7 @@ async function run() {
     });
 
     // Post API for creating customer user Details (Private Route)
-    app.put('/alluser/:id',verifyJWT, async (req, res) => {
+    app.put('/alluser/:id', verifyJWT, async (req, res) => {
       const { id } = req.params;
       const updatedUser = req.body;
       if (updatedUser._id) {
@@ -220,7 +280,7 @@ async function run() {
     });
 
     // Post API for Adding favourtite Biodata (Private Route)
-    app.post('/addFavourite', verifyJWT,async (req, res) => {
+    app.post('/addFavourite', verifyJWT, async (req, res) => {
       try {
         const user = req.body;
         const result = await favouriteCollection.insertOne(user);
@@ -232,7 +292,7 @@ async function run() {
     });
 
     //Stripe Checkout API Intent (Private Route)
-    app.post('/create-payment-intent',verifyJWT, async (req, res) => {
+    app.post('/create-payment-intent', verifyJWT, async (req, res) => {
 
       const amountInCent = req.body.amount * 100;
       try {
@@ -253,7 +313,7 @@ async function run() {
     });
 
     // Save successful payment to DB (Private Route)
-    app.post('/save-payment',verifyJWT, async (req, res) => {
+    app.post('/save-payment', verifyJWT, async (req, res) => {
       try {
         const { biodataId, email, amount, paymentIntentId } = req.body;
         console.log(req.body);
@@ -279,7 +339,7 @@ async function run() {
     });
 
     // Get all contact requests (Private Route)
-    app.get('/all-contact-requests',verifyJWT, async (req, res) => {
+    app.get('/all-contact-requests', verifyJWT, async (req, res) => {
       try {
         const contactRequests = await paymentCollection.find().toArray();
         res.status(200).json(contactRequests);
