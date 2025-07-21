@@ -86,7 +86,6 @@ async function run() {
     // Get user role by email
     app.get('/user-role', async (req, res) => {
       const email = req.query.email;
-      console.log(email);
       if (!email) {
         return res.status(400).json({ message: "Email is required" });
       }
@@ -186,11 +185,12 @@ async function run() {
     app.get('/userwithemail', async (req, res) => {
       try {
         const contactEmail = req.query.email;
-        console.log("This is the get api", contactEmail)
-        const result = await userCollection.findOne({ contactEmail: 
-          { $regex: new RegExp(`^${contactEmail}$`, "i") } });
+        const result = await userCollection.findOne({
+          contactEmail:
+            { $regex: new RegExp(`^${contactEmail}$`, "i") }
+        });
         res.send(result);
-      } 
+      }
       catch (err) {
         console.error("Error fetching users:", err);
         res.status(500).send("Internal server error");
@@ -224,21 +224,19 @@ async function run() {
       }
     });
 
-
-
     // Backend route to update user role to "premiumUser"
-    app.patch("/registereduser/:id", async (req, res) => {
-      const userId = req.params.id;
-
+    app.patch("/registereduser", async (req, res) => {
+      const id = req.query.biodataId;
+      const Id = parseInt(id);
+      console.log(Id)
       try {
         const result = await RegisteredUserCollection.updateOne(
-          { _id: new ObjectId(userId) },
+          { biodataId : Id},
           { $set: { role: "premiumUser" } }
         );
-
-        // if (result.matchedCount === 0) {
-        //   return res.status(404).json({ message: "User not found" });
-        // }
+        if (result.matchedCount === 0) {
+          return res.status(404).json({ message: "User not found" });
+        }
 
         res.status(200).json({ message: "User upgraded to premium successfully" });
       } catch (error) {
@@ -339,8 +337,9 @@ async function run() {
 
     app.post('/approvePremium', async (req, res) => {
       try {
-        const email = req.body.email;
-        const userExists = await approvePremiumCollection.findOne({ email });
+        const reqEmail = req.query.email;
+        console.log(reqEmail)
+        const userExists = await approvePremiumCollection.findOne({ reqEmail });
         if (userExists) {
           return res.status(200).send({
             message: "User is already premium",
@@ -379,25 +378,38 @@ async function run() {
     app.put('/alluser/:id', async (req, res) => {
       const { id } = req.params;
       const updatedUser = req.body;
-      // Remove _id from updatedUser if present
+
       if (updatedUser._id) {
         delete updatedUser._id;
       }
-      console.log(id)
-      // Generate BiodataId
-      const totalUsers = await userCollection.countDocuments();
-      const BiodataId = totalUsers === 0 ? 1 : totalUsers + 1;
 
       try {
+        // Check if user already has a biodataId
+        const existingUser = await userCollection.findOne({ _id: new ObjectId(id) });
+
+        let updateFields = { ...updatedUser }; // Start with updated fields
+        let newBiodataId = null;
+
+        // If user does NOT have a biodataId, generate and add it
+        if (!existingUser.biodataId) {
+          const totalUsers = await userCollection.countDocuments();
+          newBiodataId = totalUsers === 0 ? 1 : totalUsers + 1;
+          updateFields.biodataId = newBiodataId;
+        }
+
+        // Update in userCollection
         const result = await userCollection.updateOne(
           { _id: new ObjectId(id) },
-          {
-            $set: {
-              ...updatedUser,           // Spread updatedUser fields
-              biodataId: BiodataId      // Add new field
-            }
-          }
+          { $set: updateFields }
         );
+
+        // ALSO update in RegisteredUserCollection if biodataId was generated
+        if (newBiodataId) {
+          await RegisteredUserCollection.updateOne(
+            { email: existingUser.contactEmail }, // Assuming `contactEmail` is same
+            { $set: { biodataId: newBiodataId } }
+          );
+        }
 
         res.send(result);
       } catch (err) {
@@ -405,6 +417,7 @@ async function run() {
         res.status(500).send({ message: "Server error" });
       }
     });
+
 
 
     app.post('/addFavourite', async (req, res) => {
