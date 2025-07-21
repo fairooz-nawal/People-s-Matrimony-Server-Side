@@ -298,12 +298,14 @@ async function run() {
         const totalUsers = await userCollection.countDocuments();
         const totalMales = await userCollection.countDocuments({ gender: "Male" });
         const totalFemales = await userCollection.countDocuments({ gender: "Female" });
+        const totalPremium= await RegisteredUserCollection.countDocuments({ role: "premiumUser" });
         const totalMarriages = await marriageCollection.countDocuments();
 
         res.send({
           totalUsers,
           totalMales,
           totalFemales,
+          totalPremium,
           totalMarriages
         });
       } catch (err) {
@@ -488,6 +490,17 @@ async function run() {
         res.status(500).json({ message: "Internal server error" });
       }
     });
+
+    app.delete('/deleteAfterApprove/:id', async (req, res) => {
+      try {
+        const  id  = req.params.id;
+        const result = await approvePremiumCollection.deleteOne({reqBioId:ID});
+        res.status(200).json({ message: "Contact request deleted successfully", result });
+      } catch (err) {
+        console.error("Error deleting contact request:", err);
+        res.status(500).json({ message: "Internal server error" });
+      }
+    })
 
   } catch (err) {
     console.error("MongoDB connection error:", err);
