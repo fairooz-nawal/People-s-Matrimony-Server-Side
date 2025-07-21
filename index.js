@@ -283,6 +283,15 @@ async function run() {
         res.status(500).send("Internal server error");
       }
     });
+    app.get('/approvePremium',  async (req, res) => {
+      try {
+        const users = await approvePremiumCollection.find().toArray();
+        res.send(users);
+      } catch (err) {
+        console.error("Error fetching users:", err);
+        res.status(500).send("Internal server error");
+      }
+    });
 
     // Premium POST
 
