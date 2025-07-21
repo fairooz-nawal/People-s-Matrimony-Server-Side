@@ -53,7 +53,7 @@ async function run() {
 
     const verifyJWT = async (req, res, next) => {
       const authHeader = req.headers.authorization;
-      console.log(req.headers.authorization);
+      // console.log(req.headers.authorization);
       if (!authHeader) {
         return res.status(401).json({ message: 'Unauthorized: No token provided' });
       }
@@ -83,7 +83,32 @@ async function run() {
       next();
     };
 
-     //1.POST API to get users after they register into the system 
+    // Get user role by email
+    app.get('/user-role', async (req, res) => {
+      const email = req.query.email;
+      console.log(email);
+      if (!email) {
+        return res.status(400).json({ message: "Email is required" });
+      }
+
+      try {
+        const user = await RegisteredUserCollection.findOne({ email });
+
+        if (!user) {
+          return res.status(404).json({ message: "User not found" });
+        }
+
+        res.status(200).json({
+          email: user.email,
+          role: user.role || "user", // Default to "user" if no role
+          premium: user.premium || false, // Optional: include premium status
+        });
+      } catch (err) {
+        console.error("Error fetching user role:", err);
+        res.status(500).json({ message: "Internal server error" });
+      }
+    });
+    //1.POST API to get users after they register into the system 
     app.post('/registereduser', async (req, res) => {
       try {
         const email = req.body.email;
@@ -104,7 +129,7 @@ async function run() {
     });
 
     // Search user by partial email (case-insensitive)
-    app.get('/adminsearch',  async (req, res) => {
+    app.get('/adminsearch', async (req, res) => {
       const email = req.query.email;
 
       if (!email) {
@@ -130,7 +155,7 @@ async function run() {
     });
 
     // Toggle admin role
-    app.patch('/admin/toggle-admin/:id',  async (req, res) => {
+    app.patch('/admin/toggle-admin/:id', async (req, res) => {
       const { id } = req.params;
       const { action } = req.body; // action: "make" or "remove"
 
@@ -154,35 +179,27 @@ async function run() {
     });
 
 
-    // Get user role by email
-    app.get('/user-role', async (req, res) => {
-      const email = req.query.email;
 
-      if (!email) {
-        return res.status(400).json({ message: "Email is required" });
-      }
 
+
+    // GET API to SEARCH BY EMAIL FROM USER COLLECTION TABLE
+    app.get('/userwithemail', async (req, res) => {
       try {
-        const user = await RegisteredUserCollection.findOne({ email });
-
-        if (!user) {
-          return res.status(404).json({ message: "User not found" });
-        }
-
-        res.status(200).json({
-          email: user.email,
-          role: user.role || "user", // Default to "user" if no role
-          premium: user.premium || false, // Optional: include premium status
-        });
-      } catch (err) {
-        console.error("Error fetching user role:", err);
-        res.status(500).json({ message: "Internal server error" });
+        const contactEmail = req.query.email;
+        console.log("This is the get api", contactEmail)
+        const result = await userCollection.findOne({ contactEmail: 
+          { $regex: new RegExp(`^${contactEmail}$`, "i") } });
+        res.send(result);
+      } 
+      catch (err) {
+        console.error("Error fetching users:", err);
+        res.status(500).send("Internal server error");
       }
     });
 
 
     // Get API for info of single user (protected Route)
-    app.get('/singlealluser',  async (req, res) => {
+    app.get('/singlealluser', async (req, res) => {
       try {
         const email = req.query.email;
         if (email) {
@@ -194,6 +211,7 @@ async function run() {
         res.status(500).send("Internal server error");
       }
     });
+
 
     // GET API to get users after they register into the system
     app.get('/registereduser', async (req, res) => {
@@ -208,8 +226,32 @@ async function run() {
 
 
 
+    // Backend route to update user role to "premiumUser"
+    app.patch("/registereduser/:id", async (req, res) => {
+      const userId = req.params.id;
+
+      try {
+        const result = await RegisteredUserCollection.updateOne(
+          { _id: new ObjectId(userId) },
+          { $set: { role: "premiumUser" } }
+        );
+
+        // if (result.matchedCount === 0) {
+        //   return res.status(404).json({ message: "User not found" });
+        // }
+
+        res.status(200).json({ message: "User upgraded to premium successfully" });
+      } catch (error) {
+        console.error("Error updating user role:", error);
+        res.status(500).json({ message: "Failed to update user role" });
+      }
+    });
+
+
+
+
     // Get API for info of All user (Private Route)
-    app.get('/alluser',  async (req, res) => {
+    app.get('/alluser', async (req, res) => {
       try {
         const users = await userCollection.find().toArray();
         res.send(users);
@@ -220,9 +262,8 @@ async function run() {
     });
 
     // Get API for info of particular user detail (Private Route)
-    app.get("/alluser/:id",  async (req, res) => {
+    app.get("/alluser/:id", async (req, res) => {
       const { id } = req.params;
-      console.log(req.headers)
       const biodata = await userCollection.findOne({ _id: new ObjectId(id) });
       if (!biodata) {
         return res.status(404).json({ error: "Biodata not found" });
@@ -274,7 +315,7 @@ async function run() {
     });
 
     // Get API for info of all favourite (Private Route)
-    app.get('/allFavourites',  async (req, res) => {
+    app.get('/allFavourites', async (req, res) => {
       try {
         const users = await favouriteCollection.find().toArray();
         res.send(users);
@@ -283,7 +324,8 @@ async function run() {
         res.status(500).send("Internal server error");
       }
     });
-    app.get('/approvePremium',  async (req, res) => {
+
+    app.get('/approvePremium', async (req, res) => {
       try {
         const users = await approvePremiumCollection.find().toArray();
         res.send(users);
@@ -295,7 +337,7 @@ async function run() {
 
     // Premium POST
 
-     app.post('/approvePremium', async (req, res) => {
+    app.post('/approvePremium', async (req, res) => {
       try {
         const email = req.body.email;
         const userExists = await approvePremiumCollection.findOne({ email });
@@ -314,18 +356,49 @@ async function run() {
       }
     });
 
-    // Post API for creating customer user Details (Private Route)
+    app.post('/alluser', async (req, res) => {
+      try {
+        const contactEmail = req.body.email;
+        const userExists = await userCollection.findOne({ contactEmail });
+        if (userExists) {
+          return res.status(200).send({
+            message: "User already exists",
+            inserted: false
+          });
+        }
+        const user = req.body;
+        const result = await userCollection.insertOne(user);
+        res.send(result);
+      } catch (err) {
+        console.error("Error creating user:", err);
+        res.status(500).send("Internal server error");
+      }
+    });
+
+    // Put API for creating customer user Details (Private Route)
     app.put('/alluser/:id', async (req, res) => {
       const { id } = req.params;
       const updatedUser = req.body;
+      // Remove _id from updatedUser if present
       if (updatedUser._id) {
         delete updatedUser._id;
       }
+      console.log(id)
+      // Generate BiodataId
+      const totalUsers = await userCollection.countDocuments();
+      const BiodataId = totalUsers === 0 ? 1 : totalUsers + 1;
+
       try {
         const result = await userCollection.updateOne(
           { _id: new ObjectId(id) },
-          { $set: updatedUser }
+          {
+            $set: {
+              ...updatedUser,           // Spread updatedUser fields
+              biodataId: BiodataId      // Add new field
+            }
+          }
         );
+
         res.send(result);
       } catch (err) {
         console.error("Error updating user:", err);
@@ -333,7 +406,7 @@ async function run() {
       }
     });
 
-    // Post API for Adding favourtite Biodata (Private Route)
+
     app.post('/addFavourite', async (req, res) => {
       try {
         const user = req.body;
@@ -346,7 +419,7 @@ async function run() {
     });
 
     //Stripe Checkout API Intent (Private Route)
-    app.post('/create-payment-intent',  async (req, res) => {
+    app.post('/create-payment-intent', async (req, res) => {
 
       const amountInCent = req.body.amount * 100;
       try {
@@ -367,7 +440,7 @@ async function run() {
     });
 
     // Save successful payment to DB (Private Route)
-    app.post('/save-payment',  async (req, res) => {
+    app.post('/save-payment', async (req, res) => {
       try {
         const { biodataId, email, amount, paymentIntentId } = req.body;
         console.log(req.body);
@@ -393,7 +466,7 @@ async function run() {
     });
 
     // Get all contact requests (Private Route)
-    app.get('/all-contact-requests',  async (req, res) => {
+    app.get('/all-contact-requests', async (req, res) => {
       try {
         const contactRequests = await paymentCollection.find().toArray();
         res.status(200).json(contactRequests);
