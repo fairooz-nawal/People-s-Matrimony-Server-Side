@@ -107,6 +107,7 @@ async function run() {
         res.status(500).json({ message: "Internal server error" });
       }
     });
+
     //1.POST API to get users after they register into the system 
     app.post('/registereduser', async (req, res) => {
       try {
@@ -292,6 +293,19 @@ async function run() {
       }
     })
 
+    app.post('/success-stories', async (req, res) => {
+      try {
+        const user = req.body;
+        console.log(user);
+        const marriages = await marriageCollection.insertOne(user);
+        res.send(marriages);
+      }
+      catch (err) {
+        console.error("Error fetching success stories:", err);
+        res.status(500).send("Internal server error");
+      }
+    })
+
     // Get API for gettting counts of all tables
     app.get('/success-counter', async (req, res) => {
       try {
@@ -300,13 +314,15 @@ async function run() {
         const totalFemales = await userCollection.countDocuments({ gender: "Female" });
         const totalPremium = await RegisteredUserCollection.countDocuments({ role: "premiumUser" });
         const totalMarriages = await marriageCollection.countDocuments();
+        const totalrevenue = await paymentCollection.countDocuments() * 5;
 
         res.send({
           totalUsers,
           totalMales,
           totalFemales,
           totalPremium,
-          totalMarriages
+          totalMarriages,
+          totalrevenue
         });
       } catch (err) {
         console.error("Error fetching success counter:", err);
@@ -473,18 +489,25 @@ async function run() {
     // Save successful payment to DB (Private Route)
     app.post('/save-payment', async (req, res) => {
       try {
-        const { biodataId, name, email, amount, paymentIntentId } = req.body;
+        const { biodataId, email, amount, paymentIntentId } = req.body;
         // console.log(req.body);
         if (!biodataId || !email || !paymentIntentId) {
           return res.status(400).json({ message: "Missing required fields" });
         }
 
+        const lookinguser = await userCollection.findOne({ biodataId });
+        const name = lookinguser.name;
+        const contactEmail = lookinguser.contactEmail;
+        const mobileNumber = lookinguser.mobileNumber;
+       
         const paymentData = {
           biodataId,
           name,
           email,
           amount,
           paymentIntentId,
+          contactEmail,
+          mobileNumber,
           status: "pending", // Initially false. You can toggle it later from admin panel
           date: new Date()
         };
@@ -531,6 +554,7 @@ async function run() {
         res.status(500).json({ message: "Internal server error" });
       }
     })
+  
 
   } catch (err) {
     console.error("MongoDB connection error:", err);
