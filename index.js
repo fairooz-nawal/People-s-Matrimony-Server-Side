@@ -228,10 +228,10 @@ async function run() {
     app.patch("/registereduser", async (req, res) => {
       const id = req.query.biodataId;
       const Id = parseInt(id);
-      console.log(Id)
+      // console.log(Id)
       try {
         const result = await RegisteredUserCollection.updateOne(
-          { biodataId : Id},
+          { biodataId: Id },
           { $set: { role: "premiumUser" } }
         );
         if (result.matchedCount === 0) {
@@ -298,7 +298,7 @@ async function run() {
         const totalUsers = await userCollection.countDocuments();
         const totalMales = await userCollection.countDocuments({ gender: "Male" });
         const totalFemales = await userCollection.countDocuments({ gender: "Female" });
-        const totalPremium= await RegisteredUserCollection.countDocuments({ role: "premiumUser" });
+        const totalPremium = await RegisteredUserCollection.countDocuments({ role: "premiumUser" });
         const totalMarriages = await marriageCollection.countDocuments();
 
         res.send({
@@ -340,7 +340,6 @@ async function run() {
     app.post('/approvePremium', async (req, res) => {
       try {
         const reqEmail = req.query.email;
-        console.log(reqEmail)
         const userExists = await approvePremiumCollection.findOne({ reqEmail });
         if (userExists) {
           return res.status(200).send({
@@ -357,9 +356,26 @@ async function run() {
       }
     });
 
+    app.patch('/approvePremium/:id', async (req, res) => {
+      try {
+        const { id } = req.params;
+        const updatedUser = req.body;
+        const result = await approvePremiumCollection.updateOne(
+          { _id: new ObjectId(id) },
+          { $set: { role: "premiumUser" } }
+        );
+        res.send(result);
+      } catch (err) {
+        console.error("Error updating user:", err);
+        res.status(500).send("Internal server error");
+      }
+    })
+
+
+
     app.post('/alluser', async (req, res) => {
       try {
-        const contactEmail = req.body.email;
+        const contactEmail = req.body.contactEmail;
         const userExists = await userCollection.findOne({ contactEmail });
         if (userExists) {
           return res.status(200).send({
@@ -457,21 +473,21 @@ async function run() {
     // Save successful payment to DB (Private Route)
     app.post('/save-payment', async (req, res) => {
       try {
-        const { biodataId, email, amount, paymentIntentId } = req.body;
-        console.log(req.body);
+        const { biodataId, name, email, amount, paymentIntentId } = req.body;
+        // console.log(req.body);
         if (!biodataId || !email || !paymentIntentId) {
           return res.status(400).json({ message: "Missing required fields" });
         }
 
         const paymentData = {
           biodataId,
+          name,
           email,
           amount,
           paymentIntentId,
-          status: false, // Initially false. You can toggle it later from admin panel
+          status: "pending", // Initially false. You can toggle it later from admin panel
           date: new Date()
         };
-
         const result = await paymentCollection.insertOne(paymentData);
         res.status(200).json({ message: "Payment saved successfully", result });
       } catch (err) {
@@ -480,6 +496,20 @@ async function run() {
       }
     });
 
+    app.patch('/change-payment-status/:id', async (req, res) => {
+      try {
+        const  id = req.params.id;
+        console.log(id);
+        const result = await paymentCollection.updateOne(
+          { _id: new ObjectId(id) },
+          { $set: { status: "approved" } }
+        );
+        res.send(result);
+      } catch (err) {
+        console.error("Error updating user:", err);
+        res.status(500).send("Internal server error");
+      }
+    })
     // Get all contact requests (Private Route)
     app.get('/all-contact-requests', async (req, res) => {
       try {
@@ -493,8 +523,8 @@ async function run() {
 
     app.delete('/deleteAfterApprove/:id', async (req, res) => {
       try {
-        const  id  = req.params.id;
-        const result = await approvePremiumCollection.deleteOne({reqBioId:ID});
+        const id = req.params.id;
+        const result = await approvePremiumCollection.deleteOne({ reqBioId: ID });
         res.status(200).json({ message: "Contact request deleted successfully", result });
       } catch (err) {
         console.error("Error deleting contact request:", err);
