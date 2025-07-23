@@ -1,4 +1,4 @@
-require('dotenv').config();
+require('dotenv').config({ debug: false });
 const express = require('express');
 const cors = require('cors');
 const app = express();
@@ -260,6 +260,70 @@ async function run() {
       }
     });
 
+    app.post('/filteralluser', async (req, res) => {
+      try {
+        const { ageFrom, ageTo, biodataType, division } = req.body;
+        console.log(ageFrom, ageTo, biodataType, division)
+        const filter = {};
+        
+        //age filter
+        const ageFilter = {};
+
+        if (ageFrom && !isNaN(parseInt(ageFrom))) {
+          ageFilter.$gte = parseInt(ageFrom);
+        }
+
+        if (ageTo && !isNaN(parseInt(ageTo))) {
+          ageFilter.$lte = parseInt(ageTo);
+        }
+
+        if (Object.keys(ageFilter).length > 0) {
+          filter.age = ageFilter;
+        }
+
+        if (biodataType) {
+          filter.gender = biodataType;
+        }
+
+        if (division) {
+          filter.permanentDivision = division;
+        }
+
+        const users = await userCollection.find(filter).toArray();
+        console.log(users);
+        res.send(users);
+      } catch (err) {
+        console.error("Error fetching users:", err);
+        res.status(500).send("Internal server error");
+      }
+    });
+
+    app.get('/filteralluser', async (req, res) => {
+      try {
+        const { ageFrom, ageTo, biodataType, division } = req.query;
+        const filter = {};
+
+        if (ageFrom && ageTo) {
+          filter.age = { $gte: parseInt(ageFrom), $lte: parseInt(ageTo) };
+        }
+
+        if (biodataType) {
+          filter.biodataType = biodataType;
+        }
+
+        if (division) {
+          filter.division = division;
+        }
+
+        const users = await userCollection.find(filter).toArray();
+        res.send(users);
+      } catch (err) {
+        console.error("Error fetching users:", err);
+        res.status(500).send("Internal server error");
+      }
+    });
+
+
     // Get API for info of particular user detail (Private Route)
     app.get("/alluser/:id", async (req, res) => {
       const { id } = req.params;
@@ -499,7 +563,7 @@ async function run() {
         const name = lookinguser.name;
         const contactEmail = lookinguser.contactEmail;
         const mobileNumber = lookinguser.mobileNumber;
-       
+
         const paymentData = {
           biodataId,
           name,
@@ -521,7 +585,7 @@ async function run() {
 
     app.patch('/change-payment-status/:id', async (req, res) => {
       try {
-        const  id = req.params.id;
+        const id = req.params.id;
         console.log(id);
         const result = await paymentCollection.updateOne(
           { _id: new ObjectId(id) },
@@ -554,7 +618,7 @@ async function run() {
         res.status(500).json({ message: "Internal server error" });
       }
     })
-  
+
 
   } catch (err) {
     console.error("MongoDB connection error:", err);
