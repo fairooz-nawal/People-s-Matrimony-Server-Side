@@ -178,10 +178,6 @@ async function run() {
       }
     });
 
-
-
-
-
     // GET API to SEARCH BY EMAIL FROM USER COLLECTION TABLE
     app.get('/userwithemail', async (req, res) => {
       try {
@@ -212,6 +208,9 @@ async function run() {
         res.status(500).send("Internal server error");
       }
     });
+
+
+
 
 
     // GET API to get users after they register into the system
@@ -265,7 +264,7 @@ async function run() {
         const { ageFrom, ageTo, biodataType, division } = req.body;
         console.log(ageFrom, ageTo, biodataType, division)
         const filter = {};
-        
+
         //age filter
         const ageFilter = {};
 
@@ -291,31 +290,6 @@ async function run() {
 
         const users = await userCollection.find(filter).toArray();
         console.log(users);
-        res.send(users);
-      } catch (err) {
-        console.error("Error fetching users:", err);
-        res.status(500).send("Internal server error");
-      }
-    });
-
-    app.get('/filteralluser', async (req, res) => {
-      try {
-        const { ageFrom, ageTo, biodataType, division } = req.query;
-        const filter = {};
-
-        if (ageFrom && ageTo) {
-          filter.age = { $gte: parseInt(ageFrom), $lte: parseInt(ageTo) };
-        }
-
-        if (biodataType) {
-          filter.biodataType = biodataType;
-        }
-
-        if (division) {
-          filter.division = division;
-        }
-
-        const users = await userCollection.find(filter).toArray();
         res.send(users);
       } catch (err) {
         console.error("Error fetching users:", err);
@@ -397,7 +371,7 @@ async function run() {
     // Get API for info of all favourite (Private Route)
     app.get('/allFavourites', async (req, res) => {
       try {
-        const users = await favouriteCollection.find().toArray();
+        const users = await favouriteCollection.find().limit(6).toArray();
         res.send(users);
       } catch (err) {
         console.error("Error fetching users:", err);
