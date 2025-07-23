@@ -89,7 +89,7 @@ SweetAlert2 and Toastify for CRUD operations and auth status.
 ### Client `.env`
 
 ## Project Setup
-git clone https://github.com/your-username/matrimonyhub-client.git
-cd matrimonyhub-client
-npm install
-npm run dev
+### git clone https://github.com/your-username/matrimonyhub-client.git
+### cd matrimonyhub-client
+### npm install
+### npm run dev
