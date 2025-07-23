@@ -7,8 +7,8 @@ Welcome to **MatrimonyHub**, a modern, responsive, and feature-rich matrimony pl
 📂 **Server GitHub Repo**: [https://github.com/Programming-Hero-Web-Course4/b11a12-server-side-fairooz-nawal](https://github.com/Programming-Hero-Web-Course4/b11a12-server-side-fairooz-nawal)  
 
 🛠️ **Admin Credentials**  
-- **Email**: `admin@matrimonyhub.com`  
-- **Password**: `Admin123!`  
+- **Email**: `admin@gmail.com`  
+- **Password**: `Admin@123` 
 
 ---
 
