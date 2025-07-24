@@ -39,7 +39,7 @@ const client = new MongoClient(uri, {
 async function run() {
   try {
     // Connect the client ONCE and keep it alive
-    await client.connect();
+    // await client.connect();
     console.log("Connected to MongoDB");
 
     const userCollection = client.db("PeoplesMatrimony").collection("User");
@@ -235,10 +235,9 @@ async function run() {
           { $set: { role: "premiumUser" } }
         );
         if (result.matchedCount === 0) {
-          return res.status(404).json({ message: "User not found" });
+          return res.send({ message: "User not found" });
         }
-
-        res.status(200).json({ message: "User upgraded to premium successfully" });
+        res.send(result);
       } catch (error) {
         console.error("Error updating user role:", error);
         res.status(500).json({ message: "Failed to update user role" });
@@ -309,9 +308,10 @@ async function run() {
     });
 
     // Get API for info of all user but limited to 6
-    app.get('/user', async (req, res) => {
+    app.get('/premiumRegisterduser', async (req, res) => {
       try {
-        const users = await userCollection.find().limit(6).toArray();
+        const role = { role: "premiumUser" };
+        const users = await userCollection.find(role).toArray();
         res.send(users);
       } catch (err) {
         console.error("Error fetching users:", err);
@@ -319,10 +319,28 @@ async function run() {
       }
     });
 
+    // show users according to age
+    app.post("/sortbyage/:value", async (req, res) => {
+      const value = req.params.value;
+      const users = req.body;
+      let sortedUsers;
+    if (value === "asc") {
+      sortedUsers = users.sort((a, b) => a.age - b.age);
+    } else if (value === "dsc") {
+      sortedUsers = users.sort((a, b) => b.age - a.age);
+    } else {
+      return res.status(400).json({ message: "Invalid sort order." });
+    }
+
+    res.send(sortedUsers);
+    })
+
+
+
     // Get API for Success Stories of Marriage
     app.get('/success-stories', async (req, res) => {
       try {
-        const marriages = await marriageCollection.find().limit(6).toArray();
+        const marriages = await marriageCollection.find().sort({ createdAt: -1 }).limit(6).toArray();
         res.send(marriages);
       }
       catch (err) {
@@ -335,14 +353,25 @@ async function run() {
       try {
         const user = req.body;
         console.log(user);
-        const marriages = await marriageCollection.insertOne(user);
+
+        let dateString = user.createdAt;
+        if (dateString) {
+          delete user.createdAt;
+        }
+
+        const newUser = {
+          ...user,
+          createdAt: new Date(dateString)
+        };
+
+        const marriages = await marriageCollection.insertOne(newUser);
         res.send(marriages);
-      }
-      catch (err) {
-        console.error("Error fetching success stories:", err);
+      } catch (err) {
+        console.error("Error inserting success story:", err);
         res.status(500).send("Internal server error");
       }
-    })
+    });
+
 
     // Get API for gettting counts of all tables
     app.get('/success-counter', async (req, res) => {
@@ -371,7 +400,7 @@ async function run() {
     // Get API for info of all favourite (Private Route)
     app.get('/allFavourites', async (req, res) => {
       try {
-        const users = await favouriteCollection.find().limit(6).toArray();
+        const users = await favouriteCollection.find().toArray();
         res.send(users);
       } catch (err) {
         console.error("Error fetching users:", err);
@@ -585,11 +614,11 @@ async function run() {
     app.delete('/deleteAfterApprove/:id', async (req, res) => {
       try {
         const id = req.params.id;
-        const result = await approvePremiumCollection.deleteOne({ reqBioId: ID });
-        res.status(200).json({ message: "Contact request deleted successfully", result });
+        const result = await approvePremiumCollection.deleteOne({ reqBioId: id });
+        res.send(result);
       } catch (err) {
         console.error("Error deleting contact request:", err);
-        res.status(500).json({ message: "Internal server error" });
+        res.send(err);
       }
     })
 
