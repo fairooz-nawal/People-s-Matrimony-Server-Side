@@ -1,4 +1,4 @@
-# 💍 MatrimonyHub – Find Your Perfect Match ❤️
+# 💍 People's Matrimony – Find Your Perfect Match ❤️
 
 Welcome to **MatrimonyHub**, a modern, responsive, and feature-rich matrimony platform built with the **MERN stack** (MongoDB, Express.js, React.js, Node.js). Designed for seamless user experience across devices, this platform connects users with potential life partners in a secure and elegant environment.
 
