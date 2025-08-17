@@ -12,8 +12,6 @@ const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 app.use(cors());
 app.use(express.json());
 
-
-
 const serviceAccount = require("./firebase-SDK.json");
 
 admin.initializeApp({
@@ -50,38 +48,6 @@ async function run() {
     const approvePremiumCollection = client.db("PeoplesMatrimony").collection("approvePremium");
 
     // All Get APIS
-
-    const verifyJWT = async (req, res, next) => {
-      const authHeader = req.headers.authorization;
-      // console.log(req.headers.authorization);
-      if (!authHeader) {
-        return res.status(401).json({ message: 'Unauthorized: No token provided' });
-      }
-      const token = authHeader.split(' ')[1]; // Remove Bearer
-
-      if (!token) {
-        return res.status(401).json({ message: 'Unauthorized: No token provided' });
-      }
-      //verify the token
-      try {
-        const decoded = await admin.auth().verifyIdToken(token);
-        // console.log(decoded);
-        next();
-      }
-      catch (error) {
-        return res.status(403).json({ message: 'Forbidden Access' });
-      }
-    }
-
-    // Middleware to verify admin
-    const verifyAdmin = async (req, res, next) => {
-      const email = req.user.email; // This comes from verifyJWT
-      const user = await RegisteredUserCollection.findOne({ email });
-      if (user?.role !== "admin") {
-        return res.status(403).json({ message: "Forbidden: Admins only" });
-      }
-      next();
-    };
 
     // Get user role by email
     app.get('/user-role', async (req, res) => {
